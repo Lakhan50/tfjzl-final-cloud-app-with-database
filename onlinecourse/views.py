@@ -130,24 +130,41 @@ def submit(request, course_id):
 
 
 # Create an exam result view to check if learner passed exam and show question results
+# Create an exam result view to check if learner passed exam and show question results
 def show_exam_result(request, course_id, submission_id):
     context = {}
-    course = get_object_or_404(Course, pk=course_id)
-    submission = Submission.objects.get(id=submission_id)
-    choices = submission.choices.all()
 
+    course = get_object_or_404(Course, pk=course_id)
+    submission = get_object_or_404(Submission, id=submission_id)
+
+    # Get all choices selected by the learner
+    choices = submission.choices.all()
+    selected_ids = list(choices.values_list('id', flat=True))
+
+    # Initialize scores
     total_score = 0
+    possible_score = 0
+
+    # Get all questions associated with the course
     questions = course.question_set.all()
 
+    # Calculate the learner's score
     for question in questions:
-        correct_choices = question.choice_set.filter(is_correct=True)
-        selected_choices = choices.filter(question=question)
+        possible_score += question.grade
 
-        if set(correct_choices) == set(selected_choices):
+        # Use the model method to check whether the answer is correct
+        if question.is_get_score(selected_ids):
             total_score += question.grade
 
+    # Pass the required information to the template
     context['course'] = course
-    context['grade'] = total_score
     context['choices'] = choices
+    context['selected_ids'] = selected_ids
+    context['grade'] = total_score
+    context['possible'] = possible_score
 
-    return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
+    return render(
+        request,
+        'onlinecourse/exam_result_bootstrap.html',
+        context
+    )
